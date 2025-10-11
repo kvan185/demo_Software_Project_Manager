@@ -1,0 +1,85 @@
+/* === Layout tổng thể === */
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(90deg, #003c63, #007ea7);
+  color: white;
+  padding: 0 30px;
+  height: 64px;
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(5px);
+}
+
+/* === Logo === */
+.admin-logo {
+  font-size: 1.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  transition: transform 0.25s ease;
+}
+
+.admin-logo span {
+  font-size: 1.3rem;
+}
+
+.admin-logo:hover {
+  transform: scale(1.05);
+}
+
+/* === Menu điều hướng === */
+.admin-nav {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.admin-nav a {
+  color: #f5f5f5;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.95rem;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
+  transition: 0.25s;
+}
+
+.admin-nav a:hover {
+  color: #ffe082;
+  border-bottom: 2px solid #ffe082;
+}
+
+/* Mục đang hoạt động */
+.admin-nav a.active {
+  color: #ffeb3b;
+  border-bottom: 2px solid #ffeb3b;
+  font-weight: 600;
+}
+
+/* === Logout button === */
+.logout-btn {
+  background: #ff5252;
+  border: none;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.25s, transform 0.15s;
+}
+
+.logout-btn:hover {
+  background: #e53935;
+  transform: scale(1.05);
+}
+
+.logout-btn:active {
+  transform: scale(0.95);
+}
