@@ -187,6 +187,24 @@ CREATE TABLE custom_tour_guides (
   CONSTRAINT fk_ctg_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+CREATE TABLE employee_schedules (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  employee_id BIGINT NOT NULL,
+  tour_id BIGINT NOT NULL,
+  schedule_date DATE NOT NULL,         -- ngày làm việc (ví dụ 2025-10-12)
+  start_time TIME DEFAULT '08:00:00',  -- giờ bắt đầu ca làm
+  end_time TIME DEFAULT '18:00:00',    -- giờ kết thúc ca làm
+  shift ENUM('morning', 'afternoon', 'full-day') DEFAULT 'full-day',
+  status ENUM('scheduled', 'working', 'completed', 'cancelled') DEFAULT 'scheduled',
+  note TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  CONSTRAINT fk_emp_sched_emp FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  CONSTRAINT fk_emp_sched_tour FOREIGN KEY (tour_id) REFERENCES tours(id) ON DELETE CASCADE,
+  UNIQUE KEY uk_emp_sched (employee_id, tour_id, schedule_date)
+); ENGINE=InnoDB;
+
 -- bookings: đặt tour (một booking thuộc 1 schedule và 1 customer)
 CREATE TABLE bookings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
