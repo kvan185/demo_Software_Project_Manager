@@ -1,7 +1,7 @@
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
-CREATE DATABASE travel_app CHARACTER SET = 'utf8mb4' COLLATE = 'utf8mb4_unicode_ci';
+CREATE DATABASE travel_app CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE travel_app;
 
 -- permissions: quyền hệ thống
@@ -14,7 +14,7 @@ CREATE TABLE permissions (
 -- roles: vai trò người dùng
 CREATE TABLE roles (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(50) NOT NULL UNIQUE, -- ví dụ: admin, customer, guide, operator, manager
+  name VARCHAR(50) NOT NULL UNIQUE,
   description VARCHAR(255)
 ) ENGINE=InnoDB;
 
@@ -26,7 +26,7 @@ CREATE TABLE users (
   password_hash VARCHAR(255) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  CONSTRAINT fk_rp_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE,
+  CONSTRAINT fk_user_role FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 -- role_permissions: phân quyền cho vai trò
@@ -76,7 +76,7 @@ CREATE TABLE locations (
   description TEXT
 ) ENGINE=InnoDB;
 
--- tours: thông tin tour (không phải lịch trình)
+-- tours: thông tin tour
 CREATE TABLE tours (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) UNIQUE,
@@ -93,7 +93,7 @@ CREATE TABLE tours (
   CONSTRAINT fk_tours_location FOREIGN KEY (main_location_id) REFERENCES locations(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- tour_schedules: lịch chạy cụ thể của 1 tour (mỗi schedule có số chỗ, ngày đi/về)
+-- tour_schedules: lịch chạy cụ thể
 CREATE TABLE tour_schedules (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   tour_id BIGINT NOT NULL,
@@ -101,14 +101,14 @@ CREATE TABLE tour_schedules (
   end_date DATE NOT NULL,
   seats_total INT NOT NULL,
   seats_booked INT NOT NULL DEFAULT 0,
-  price_per_person DECIMAL(12,2) NULL, -- có thể ghi giá thay đổi cho lịch này
+  price_per_person DECIMAL(12,2) NULL,
   status ENUM('open','full','cancelled','completed') DEFAULT 'open',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_schedule_tour FOREIGN KEY (tour_id) REFERENCES tours(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- services: khách sạn, vé máy bay, phương tiện
+-- services
 CREATE TABLE services (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   type ENUM('hotel','flight','transport','restaurant','ticket','other') DEFAULT 'other',
@@ -118,7 +118,7 @@ CREATE TABLE services (
   price DECIMAL(12,2) DEFAULT 0.00
 ) ENGINE=InnoDB;
 
--- tour_services: dịch vụ đi kèm của 1 tour
+-- tour_services
 CREATE TABLE tour_services (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   tour_id BIGINT NOT NULL,
@@ -130,18 +130,19 @@ CREATE TABLE tour_services (
   UNIQUE KEY uk_tour_service (tour_id, service_id)
 ) ENGINE=InnoDB;
 
--- tour_guides: phân công guide cho 1 schedule (một hdv có thể có nhiều tour)
+-- tour_guides
 CREATE TABLE tour_guides (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   schedule_id BIGINT NOT NULL,
   employee_id BIGINT NOT NULL,
-  role VARCHAR(100) DEFAULT 'guide', -- ví dụ lead guide, assistant
+  role VARCHAR(100) DEFAULT 'guide',
   assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_tg_schedule FOREIGN KEY (schedule_id) REFERENCES tour_schedules(id) ON DELETE CASCADE,
   CONSTRAINT fk_tg_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
   UNIQUE KEY uk_schedule_employee (schedule_id, employee_id)
 ) ENGINE=InnoDB;
 
+-- custom_tours
 CREATE TABLE custom_tours (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   customer_id BIGINT NOT NULL,
@@ -187,25 +188,25 @@ CREATE TABLE custom_tour_guides (
   CONSTRAINT fk_ctg_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- employee_schedules
 CREATE TABLE employee_schedules (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   employee_id BIGINT NOT NULL,
   tour_id BIGINT NOT NULL,
-  schedule_date DATE NOT NULL,         -- ngày làm việc (ví dụ 2025-10-12)
-  start_time TIME DEFAULT '08:00:00',  -- giờ bắt đầu ca làm
-  end_time TIME DEFAULT '18:00:00',    -- giờ kết thúc ca làm
+  schedule_date DATE NOT NULL,
+  start_time TIME DEFAULT '08:00:00',
+  end_time TIME DEFAULT '18:00:00',
   shift ENUM('morning', 'afternoon', 'full-day') DEFAULT 'full-day',
   status ENUM('scheduled', 'working', 'completed', 'cancelled') DEFAULT 'scheduled',
   note TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
   CONSTRAINT fk_emp_sched_emp FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
   CONSTRAINT fk_emp_sched_tour FOREIGN KEY (tour_id) REFERENCES tours(id) ON DELETE CASCADE,
   UNIQUE KEY uk_emp_sched (employee_id, tour_id, schedule_date)
-); ENGINE=InnoDB;
+) ENGINE=InnoDB;
 
--- bookings: đặt tour (một booking thuộc 1 schedule và 1 customer)
+-- bookings
 CREATE TABLE bookings (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_code VARCHAR(50) NOT NULL UNIQUE,
@@ -221,19 +222,16 @@ CREATE TABLE bookings (
   refund_note VARCHAR(255) NULL,
   refunded_at TIMESTAMP NULL,
   note TEXT,
-  
   CONSTRAINT fk_booking_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
   CONSTRAINT fk_booking_schedule FOREIGN KEY (schedule_id) REFERENCES tour_schedules(id) ON DELETE CASCADE,
   CONSTRAINT fk_booking_custom_tour FOREIGN KEY (custom_tour_id) REFERENCES custom_tours(id) ON DELETE CASCADE,
-
-  -- CHECK: chỉ được chọn 1 trong 2
   CONSTRAINT chk_only_one_tour CHECK (
     (schedule_id IS NOT NULL AND custom_tour_id IS NULL) OR
     (schedule_id IS NULL AND custom_tour_id IS NOT NULL)
   )
 ) ENGINE=InnoDB;
 
--- booking_passengers: chi tiết từng hành khách trong booking
+-- booking_passengers
 CREATE TABLE booking_passengers (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_id BIGINT NOT NULL,
@@ -246,7 +244,7 @@ CREATE TABLE booking_passengers (
   CONSTRAINT fk_passenger_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
--- payments: thanh toán cho booking
+-- payments
 CREATE TABLE payments (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_id BIGINT NOT NULL,
@@ -260,7 +258,7 @@ CREATE TABLE payments (
   CONSTRAINT fk_payment_user FOREIGN KEY (paid_by_user_id) REFERENCES users(id) ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
--- invoices: phát sinh hoá đơn
+-- invoices
 CREATE TABLE invoices (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
   booking_id BIGINT NOT NULL,
@@ -272,23 +270,22 @@ CREATE TABLE invoices (
   CONSTRAINT fk_invoice_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- reviews
 CREATE TABLE reviews (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    booking_id BIGINT NOT NULL,
-    customer_id BIGINT NOT NULL,
-    tour_id BIGINT NOT NULL,
-    guide_id BIGINT NULL,
-    rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-    comment TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
-    CONSTRAINT fk_rv_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
-    CONSTRAINT fk_rv_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
-    CONSTRAINT fk_rv_tour FOREIGN KEY (tour_id) REFERENCES tours(id) ON DELETE CASCADE,
-    CONSTRAINT fk_rv_guide FOREIGN KEY (guide_id) REFERENCES employees(id) ON DELETE SET NULL,
-
-    UNIQUE KEY uk_review (booking_id, customer_id, tour_id, guide_id)
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  booking_id BIGINT NOT NULL,
+  customer_id BIGINT NOT NULL,
+  tour_id BIGINT NOT NULL,
+  guide_id BIGINT NULL,
+  rating INT NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  comment TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_rv_booking FOREIGN KEY (booking_id) REFERENCES bookings(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rv_customer FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rv_tour FOREIGN KEY (tour_id) REFERENCES tours(id) ON DELETE CASCADE,
+  CONSTRAINT fk_rv_guide FOREIGN KEY (guide_id) REFERENCES employees(id) ON DELETE SET NULL,
+  UNIQUE KEY uk_review (booking_id, customer_id, tour_id, guide_id)
 ) ENGINE=InnoDB;
 
 SET FOREIGN_KEY_CHECKS = 1;
