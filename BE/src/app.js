@@ -1,18 +1,18 @@
-import express from 'express';
-import dotenv from 'dotenv';
+import express from "express";
+import dotenv from "dotenv";
 import cors from "cors";
-import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
-import toursRoutes from './routes/tours.js';
-import bookingRoutes from './routes/bookings.js';
-import paymentRoutes from './routes/payments.js';
-import reviewRoutes from './routes/reviews.js';
+import authRoutes from "./routes/auth.js";
+import userRoutes from "./routes/users.js";
+import toursRoutes from "./routes/tours.js";
+import bookingRoutes from "./routes/bookings.js";
+import paymentRoutes from "./routes/payments.js";
+import reviewRoutes from "./routes/reviews.js";
 import locationRouter from "./routes/admin/locations.js";
 import serviceRouter from "./routes/admin/services.js";
 import tourRouter from "./routes/admin/tours.js";
 import userRouter from "./routes/admin/users.js";
-import { requestLogger } from './middlewares/logger.js';
-import { errorHandler } from './middlewares/errorHandler.js';
+import { requestLogger } from "./middlewares/logger.js";
+import { errorHandler } from "./middlewares/errorHandler.js";
 import customerRouter from "./routes/admin/customers.js";
 import employeeRouter from "./routes/admin/employees.js";
 import scheduleRouter from "./routes/admin/tour_schedules.js";
@@ -27,22 +27,30 @@ import invoiceRouter from "./routes/admin/invoices.js";
 import reviewRouter from "./routes/admin/reviews.js";
 import employeeScheduleRouter from "./routes/admin/employeeSchedules.js";
 import customTourRouter from "./routes/admin/customTours.js";
+import tourImage from "./routes/admin/tour_images.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
-
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(requestLogger);
 app.use(errorHandler);
+app.use(
+  "/assets",
+  express.static(path.join(process.cwd(), "front-end/public/assets"))
+);
+app.use("/api/admin/tours", tourRouter);
 
-
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/tours', toursRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/reviews', reviewRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/tours", toursRoutes);
+app.use("/api/bookings", bookingRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/reviews", reviewRoutes);
 app.use("/api/admin/locations", locationRouter);
 app.use("/api/admin/services", serviceRouter);
 app.use("/api/admin/tours", tourRouter);
@@ -61,9 +69,11 @@ app.use("/api/admin/invoices", invoiceRouter);
 app.use("/api/admin/reviews", reviewRouter);
 app.use("/api/admin/employee-schedules", employeeScheduleRouter);
 app.use("/api/admin/custom-tours", customTourRouter);
+app.use("/api/admin/tour-images", tourImage);
 
-
-app.get('/api/health', (_, res) => res.json({ ok: true }));
+app.get("/api/health", (_, res) => res.json({ ok: true }));
 
 const PORT = process.env.PORT || 8088;
-app.listen(PORT, ()=> console.log(`Server running on http://localhost:${PORT}`));
+app.listen(PORT, () =>
+  console.log(`Server running on http://localhost:${PORT}`)
+);

@@ -7,7 +7,9 @@ const router = express.Router();
 // 🔹 Lấy danh sách user
 router.get("/", async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT id, email, role, created_at, updated_at FROM users ORDER BY id DESC");
+    const [rows] = await pool.query(
+      "SELECT id, email, role_id, created_at, updated_at FROM users ORDER BY id DESC"
+    );
     res.json(rows);
   } catch (err) {
     console.error("❌ Lỗi lấy danh sách user:", err);
@@ -17,15 +19,15 @@ router.get("/", async (req, res) => {
 
 // 🔹 Thêm user mới
 router.post("/add-user", async (req, res) => {
-  const { email, password, role } = req.body;
+  const { email, password, role_id } = req.body;
   if (!email || !password)
     return res.status(400).json({ message: "Email và mật khẩu là bắt buộc" });
 
   try {
     const hashed = await bcrypt.hash(password, 10);
     const [result] = await pool.query(
-      "INSERT INTO users (email, password_hash, role) VALUES (?, ?, ?)",
-      [email, hashed, role || null]
+      "INSERT INTO users (email, password_hash, role_id) VALUES (?, ?, ?)",
+      [email, hashed, role_id || null]
     );
     res.status(201).json({ id: result.insertId, email });
   } catch (err) {
@@ -41,7 +43,10 @@ router.post("/add-user", async (req, res) => {
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.query("SELECT id, email, role, created_at, updated_at FROM users WHERE id = ?", [id]);
+    const [rows] = await pool.query(
+      "SELECT id, email, role_id, created_at, updated_at FROM users WHERE id = ?",
+      [id]
+    );
     if (rows.length === 0)
       return res.status(404).json({ message: "Không tìm thấy user" });
     res.json(rows[0]);
@@ -54,23 +59,45 @@ router.get("/:id", async (req, res) => {
 // 🔹 Cập nhật user
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
-  const { email, password, role } = req.body;
+  const { email, password, role_id } = req.body;
 
   try {
-    let query = "UPDATE users SET email = ?, role = ? WHERE id = ?";
-    let params = [email, role, id];
+    let query = "UPDATE users SET email = ?, role_id = ? WHERE id = ?";
+    let params = [email, role_id, id];
 
     // Nếu có đổi mật khẩu
     if (password) {
       const hashed = await bcrypt.hash(password, 10);
-      query = "UPDATE users SET email = ?, password_hash = ?, role = ? WHERE id = ?";
-      params = [email, hashed, role, id];
+      query =
+        "UPDATE users SET email = ?, password_hash = ?, role_id = ? WHERE id = ?";
+      params = [email, hashed, role_id, id];
     }
 
     await pool.query(query, params);
     res.json({ message: "Cập nhật thành công" });
   } catch (err) {
     console.error("❌ Lỗi cập nhật user:", err);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+});
+
+// 🔹 Cấp lại mật khẩu mặc định = "123456"
+router.put("/:id/reset-password", async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const defaultPassword = "123456";
+    const hashed = await bcrypt.hash(defaultPassword, 10);
+
+    // Cập nhật lại mật khẩu
+    await pool.query(
+      "UPDATE users SET password_hash = ?, updated_at = NOW() WHERE id = ?",
+      [hashed, id]
+    );
+
+    res.json({ message: "Đã đặt lại mật khẩu mặc định (123456)" });
+  } catch (err) {
+    console.error("❌ Lỗi khi reset mật khẩu:", err);
     res.status(500).json({ message: "Lỗi server" });
   }
 });
