@@ -23,15 +23,18 @@ router.get("/", async (req, res) => {
 });
 
 // 🔹 Lấy danh sách dịch vụ của 1 tour cụ thể
-router.get("/tour/:tour_id", async (req, res) => {
+router.get("/:tour_id", async (req, res) => {
   const { tour_id } = req.params;
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query(
+      `
       SELECT ts.id, ts.service_id, s.name AS service_name, s.type, ts.qty, ts.note
       FROM tour_services ts
       JOIN services s ON ts.service_id = s.id
       WHERE ts.tour_id = ?
-    `, [tour_id]);
+    `,
+      [tour_id]
+    );
     res.json(rows);
   } catch (err) {
     console.error("❌ Lỗi lấy dịch vụ của tour:", err);
@@ -42,14 +45,18 @@ router.get("/tour/:tour_id", async (req, res) => {
 // 🔹 Thêm dịch vụ vào tour
 router.post("/add-tour-service", async (req, res) => {
   const { tour_id, service_id, qty, note } = req.body;
-  if (!tour_id || !service_id) return res.status(400).json({ message: "Thiếu tour_id hoặc service_id" });
+  if (!tour_id || !service_id)
+    return res.status(400).json({ message: "Thiếu tour_id hoặc service_id" });
 
   try {
-    const [result] = await pool.query(`
+    const [result] = await pool.query(
+      `
       INSERT INTO tour_services (tour_id, service_id, qty, note)
       VALUES (?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE qty = VALUES(qty), note = VALUES(note)
-    `, [tour_id, service_id, qty || 1, note || null]);
+    `,
+      [tour_id, service_id, qty || 1, note || null]
+    );
 
     res.status(201).json({ id: result.insertId, tour_id, service_id });
   } catch (err) {
@@ -63,7 +70,11 @@ router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { qty, note } = req.body;
   try {
-    await pool.query("UPDATE tour_services SET qty=?, note=? WHERE id=?", [qty, note, id]);
+    await pool.query("UPDATE tour_services SET qty=?, note=? WHERE id=?", [
+      qty,
+      note,
+      id,
+    ]);
     res.json({ message: "Cập nhật thành công" });
   } catch (err) {
     console.error("❌ Lỗi cập nhật tour_service:", err);

@@ -8,14 +8,15 @@ router.get("/", async (_, res) => {
   try {
     const [rows] = await pool.query(`
       SELECT 
-        es.id, es.schedule_date, es.start_time, es.end_time, es.shift, es.status, es.note,
+        es.*,
         e.full_name AS employee_name,
         t.title AS tour_title
       FROM employee_schedules es
       JOIN employees e ON es.employee_id = e.id
       JOIN tours t ON es.tour_id = t.id
-      ORDER BY es.schedule_date DESC, es.start_time ASC
     `);
+    //       ORDER BY es.schedule_date DESC, es.start_time ASC
+
     res.json(rows);
   } catch (err) {
     console.error("❌ Lỗi lấy danh sách lịch:", err);
@@ -26,15 +27,20 @@ router.get("/", async (_, res) => {
 // Lấy chi tiết 1 lịch làm việc
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
+  console.log("ID lịch làm việc yêu cầu:", id);
   try {
-    const [rows] = await pool.query(`
-      SELECT es.*, e.full_name AS employee_name, t.name AS tour_name
+    const [rows] = await pool.query(
+      `
+      SELECT es.*, e.full_name AS employee_name, t.title AS tour_name
       FROM employee_schedules es
       JOIN employees e ON es.employee_id = e.id
       JOIN tours t ON es.tour_id = t.id
       WHERE es.id = ?
-    `, [id]);
-    if (rows.length === 0) return res.status(404).json({ message: "Không tìm thấy lịch làm việc" });
+    `,
+      [id]
+    );
+    if (rows.length === 0)
+      return res.status(404).json({ message: "Không tìm thấy lịch làm việc" });
     res.json(rows[0]);
   } catch (err) {
     console.error("❌ Lỗi lấy lịch:", err);
@@ -44,18 +50,41 @@ router.get("/:id", async (req, res) => {
 
 // Thêm mới lịch làm việc
 router.post("/add", async (req, res) => {
-  const { employee_id, tour_id, schedule_date, start_time, end_time, shift, status, note } = req.body;
+  const {
+    employee_id,
+    tour_id,
+    schedule_date,
+    start_time,
+    end_time,
+    shift,
+    status,
+    note,
+  } = req.body;
 
   if (!employee_id || !tour_id || !schedule_date)
     return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
 
   try {
-    const [result] = await pool.query(`
+    const [result] = await pool.query(
+      `
       INSERT INTO employee_schedules (employee_id, tour_id, schedule_date, start_time, end_time, shift, status, note)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [employee_id, tour_id, schedule_date, start_time, end_time, shift || "full-day", status || "scheduled", note || null]);
+    `,
+      [
+        employee_id,
+        tour_id,
+        schedule_date,
+        start_time,
+        end_time,
+        shift || "full-day",
+        status || "scheduled",
+        note || null,
+      ]
+    );
 
-    res.status(201).json({ id: result.insertId, message: "Đã thêm lịch làm việc" });
+    res
+      .status(201)
+      .json({ id: result.insertId, message: "Đã thêm lịch làm việc" });
   } catch (err) {
     console.error("❌ Lỗi thêm lịch:", err);
     res.status(500).json({ message: "Không thể thêm lịch làm việc" });
@@ -68,11 +97,14 @@ router.put("/:id", async (req, res) => {
   const { schedule_date, start_time, end_time, shift, status, note } = req.body;
 
   try {
-    await pool.query(`
+    await pool.query(
+      `
       UPDATE employee_schedules
       SET schedule_date = ?, start_time = ?, end_time = ?, shift = ?, status = ?, note = ?
       WHERE id = ?
-    `, [schedule_date, start_time, end_time, shift, status, note, id]);
+    `,
+      [schedule_date, start_time, end_time, shift, status, note, id]
+    );
 
     res.json({ message: "Cập nhật lịch làm việc thành công" });
   } catch (err) {
@@ -103,7 +135,7 @@ router.get("/employee/:employeeId", async (req, res) => {
   const { date } = req.query;
   try {
     let query = `
-      SELECT es.*, t.name AS tour_name
+      SELECT es.*, t.title AS tour_name
       FROM employee_schedules es
       JOIN tours t ON es.tour_id = t.id
       WHERE es.employee_id = ?

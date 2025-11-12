@@ -28,6 +28,7 @@ import reviewRouter from "./routes/admin/reviews.js";
 import employeeScheduleRouter from "./routes/admin/employeeSchedules.js";
 import customTourRouter from "./routes/admin/customTours.js";
 import tourImage from "./routes/admin/tour_images.js";
+import tourItinerary from "./routes/admin/tour_itineraries.js";
 import path from "path";
 import { fileURLToPath } from "url";
 
@@ -70,6 +71,7 @@ app.use("/api/admin/reviews", reviewRouter);
 app.use("/api/admin/employee-schedules", employeeScheduleRouter);
 app.use("/api/admin/custom-tours", customTourRouter);
 app.use("/api/admin/tour-images", tourImage);
+app.use("/api/admin/tour-itineraries", tourItinerary);
 
 app.get("/api/health", (_, res) => res.json({ ok: true }));
 
