@@ -2,6 +2,25 @@ import express from "express";
 import { pool } from "../../db.js";
 const router = express.Router();
 
+// 🔹 Lấy danh sách lịch tour theo id
+
+router.get("/get_schedule_by_id/:id", async (req, res) => {
+  const { id } = req.params;
+  console.log(">>> id: ", id);
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM tour_schedules WHERE id = ?`,
+      [id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Không tìm thấy lịch trình" });
+    }
+    res.json(rows[0]); // trả về object thay vì mảng
+  } catch (err) {
+    console.error("❌ Lỗi lấy lịch trình tour:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 // 🔹 Lấy danh sách lịch tour theo id tour
 router.get("/:tour_id", async (req, res) => {
   const { tour_id } = req.params;

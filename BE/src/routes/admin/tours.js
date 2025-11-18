@@ -16,13 +16,52 @@ if (!fs.existsSync(ASSET_DIR)) fs.mkdirSync(ASSET_DIR, { recursive: true });
 // 🔹 Lấy danh sách tours
 router.get("/", async (req, res) => {
   try {
-    const [rows] = await pool.query(`
-      SELECT t.*, l.name AS main_location
-      FROM tours t
-      LEFT JOIN locations l ON t.main_location_id = l.id
-      ORDER BY t.id DESC
+    // 1️⃣ Lấy tất cả tour + location
+    const [tours] = await pool.query(`
+    SELECT 
+    t.*, 
+    l_main.name AS main_location,
+    ti.location_id as destination_id
+    FROM tours t
+    LEFT JOIN locations l_main ON t.main_location_id = l_main.id
+    LEFT JOIN tour_itineraries ti ON t.id = ti.tour_id AND day_number = 1
+    LEFT JOIN locations l_it ON ti.location_id = l_it.id
+    GROUP BY t.id
+    ORDER BY t.id DESC;
     `);
-    res.json(rows);
+
+    // 2️⃣ Lấy tất cả ảnh của các tour
+    const tourIds = tours.map((t) => t.id);
+    const [images] = await pool.query(
+      `
+      SELECT tour_id, img
+      FROM tour_images
+      WHERE tour_id IN (?)
+    `,
+      [tourIds]
+    );
+
+    const [start_dates] = await pool.query(
+      `
+      SELECT tour_id, start_date
+      FROM tour_schedules
+      WHERE tour_id IN (?)
+    `,
+      [tourIds]
+    );
+
+    // 3️⃣ Gom ảnh vào từng tour
+    const toursWithImages = tours.map((t) => {
+      return {
+        ...t,
+        img: images.filter((i) => i.tour_id === t.id).map((i) => i.img),
+        start_dates: start_dates
+          .filter((s) => s.tour_id === t.id && s.start_date >= new Date())
+          .map((s) => s.start_date),
+      };
+    });
+
+    res.json(toursWithImages);
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: "Server error" });
@@ -210,5 +249,37 @@ router.delete("/images/:id", async (req, res) => {
     res.status(500).json({ message: "Lỗi server" });
   }
 });
+// 🔹 Lấy 3 tour bất kỳ (khác tour hiện tại)
+router.get("/:id/other-tours", async (req, res) => {
+  const tourId = req.params.id;
 
+  try {
+    const [rows] = await pool.query(
+      `SELECT t.*, l.name AS main_location
+       FROM tours t
+       LEFT JOIN locations l ON t.main_location_id = l.id
+       WHERE t.id != ?
+       ORDER BY RAND()   -- chọn ngẫu nhiên
+       LIMIT 3`, // chỉ lấy 3 tour
+      [tourId]
+    );
+
+    // Lấy ảnh cho từng tour
+    const tourIds = rows.map((t) => t.id);
+    const [images] = await pool.query(
+      `SELECT tour_id, img FROM tour_images WHERE tour_id IN (?)`,
+      [tourIds]
+    );
+
+    const toursWithImages = rows.map((t) => ({
+      ...t,
+      img: images.filter((i) => i.tour_id === t.id).map((i) => i.img),
+    }));
+
+    res.json(toursWithImages);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+});
 export default router;
