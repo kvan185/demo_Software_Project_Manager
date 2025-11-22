@@ -57,11 +57,16 @@ router.post(
   async (req, res) => {
     const { email, password } = req.body;
     const [rows] = await pool.query(
-      `SELECT u.id, u.password_hash, u.role_id,
-       c.id AS customer_id
-      FROM users u
-      LEFT JOIN customers c ON u.id = c.user_id
-      WHERE u.email = ?`,
+      `SELECT 
+    u.id, 
+    u.password_hash, 
+    u.role_id,
+    c.id AS customer_id,
+    e.id AS employee_id
+    FROM users u
+    LEFT JOIN customers c ON u.id = c.user_id AND u.role_id = 2
+    LEFT JOIN employees e ON u.id = e.user_id AND u.role_id != 2
+    WHERE u.email = ?`,
       [email]
     );
 
@@ -76,8 +81,9 @@ router.post(
     // Lấy customer_id từ user
     const payload = {
       id: user.id,
-      cus_id: user.customer_id,
+      cus_id: user?.customer_id,
       role_id: user.role_id,
+      emp_id: user?.employee_id,
     };
     const token = jwt.sign(payload, process.env.JWT_SECRET, {
       expiresIn: process.env.JWT_EXPIRES_IN || "1d",
@@ -87,5 +93,31 @@ router.post(
     res.json({ token });
   }
 );
+router.post("/check_password/:id", (req, res) => {
+  // Invalidate the token on the client side by removing it
+  const { id } = req.params;
+  const { password } = req.body;
+
+  pool
+    .query("SELECT password_hash FROM users WHERE id = ?", [id])
+    .then(async ([rows]) => {
+      if (rows.length === 0) {
+        return res.status(404).json({ message: "User not found" });
+      }
+
+      const user = rows[0];
+      const isMatch = await bcrypt.compare(password, user.password_hash);
+
+      if (isMatch) {
+        return res.json({ valid: true });
+      } else {
+        return res.json({ valid: false });
+      }
+    })
+    .catch((err) => {
+      console.error("Error checking password:", err);
+      res.status(500).json({ message: "Server error" });
+    });
+});
 
 export default router;

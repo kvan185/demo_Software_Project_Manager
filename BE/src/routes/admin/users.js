@@ -8,7 +8,12 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const [rows] = await pool.query(
-      "SELECT id, email, role_id, created_at, updated_at FROM users ORDER BY id DESC"
+      `SELECT 
+      users.*, 
+      r.name AS role_name
+      FROM users
+      LEFT JOIN roles r ON users.role_id = r.id
+      ORDER BY users.id DESC`
     );
     res.json(rows);
   } catch (err) {
@@ -84,9 +89,10 @@ router.put("/:id", async (req, res) => {
 // 🔹 Cấp lại mật khẩu mặc định = "123456"
 router.put("/:id/reset-password", async (req, res) => {
   const { id } = req.params;
+  const { newPassword } = req.body;
 
   try {
-    const defaultPassword = "123456";
+    const defaultPassword = newPassword || "123456";
     const hashed = await bcrypt.hash(defaultPassword, 10);
 
     // Cập nhật lại mật khẩu
@@ -95,7 +101,7 @@ router.put("/:id/reset-password", async (req, res) => {
       [hashed, id]
     );
 
-    res.json({ message: "Đã đặt lại mật khẩu mặc định (123456)" });
+    res.json({ message: "Đã đặt lại mật khẩu mặc định " + defaultPassword });
   } catch (err) {
     console.error("❌ Lỗi khi reset mật khẩu:", err);
     res.status(500).json({ message: "Lỗi server" });

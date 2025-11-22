@@ -2,7 +2,58 @@ import express from "express";
 import { pool } from "../../db.js";
 const router = express.Router();
 
-// 🔹 Lấy danh sách lịch tour theo id
+// 🔹 Lấy danh sách lịch tour theo userId (chỉ những tour chưa kết thúc)
+router.get("/user/:userId", async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // 1️⃣ Lấy danh sách booking của user
+    const [bookings] = await pool.query(
+      "SELECT id AS booking_id, booking_code, schedule_id FROM bookings WHERE user_id = ?",
+      [userId]
+    );
+
+    if (!bookings.length) {
+      return res
+        .status(404)
+        .json({ message: "Người dùng chưa có booking nào" });
+    }
+
+    // 2️⃣ Lấy danh sách schedule_id từ các booking
+    const scheduleIds = bookings.map((b) => b.schedule_id);
+
+    if (!scheduleIds.length) {
+      return res.json([]);
+    }
+
+    // 3️⃣ Lấy thông tin tour_schedule dựa trên schedule_id và end_date >= NOW()
+    const [schedules] = await pool.query(
+      `SELECT ts.* , t.title as tour_name 
+       FROM tour_schedules ts
+       JOIN tours t ON t.id = ts.tour_id 
+       WHERE ts.end_date >= NOW() 
+       AND ts.id IN (${scheduleIds.map(() => "?").join(",")})`,
+      scheduleIds
+    );
+
+    // 4️⃣ Kết hợp booking và schedule
+    const result = bookings
+      .map((b) => {
+        const schedule = schedules.find((s) => s.id === b.schedule_id);
+        if (!schedule) return null;
+        return {
+          booking_id: b.booking_id,
+          booking_code: b.booking_code,
+          schedule: schedule || null,
+        };
+      })
+      .filter((b) => b !== null);
+    res.json(result);
+  } catch (err) {
+    console.error("❌ Lỗi lấy tour_schedule theo user_id:", err);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+});
 
 router.get("/get_schedule_by_id/:id", async (req, res) => {
   const { id } = req.params;

@@ -22,7 +22,7 @@ router.get("/", async (req, res) => {
              b.qty_adults, b.qty_children, b.total_amount,
              b.status, b.payment_status
       FROM bookings b
-      LEFT JOIN customers c ON b.customer_id = c.id
+      LEFT JOIN customers c ON b.user_id = c.user_id
       LEFT JOIN tour_schedules ts ON b.schedule_id = ts.id
       LEFT JOIN tours t ON ts.tour_id = t.id
       ORDER BY b.booking_date DESC
@@ -42,7 +42,7 @@ router.get("/:id", async (req, res) => {
       `
       SELECT b.*, c.full_name AS customer_name, t.title AS tour_title
       FROM bookings b
-      LEFT JOIN customers c ON b.customer_id = c.id
+      LEFT JOIN customers c ON b.user_id = c.user_id
       LEFT JOIN tour_schedules ts ON b.schedule_id = ts.id
       LEFT JOIN tours t ON ts.tour_id = t.id
       WHERE b.id = ?
@@ -62,7 +62,7 @@ router.get("/:id", async (req, res) => {
 // 🔹 Thêm booking mới
 router.post("/add-booking", async (req, res) => {
   const {
-    customer_id,
+    user_id,
     schedule_id,
     custom_tour_id,
     qty_adults,
@@ -71,7 +71,7 @@ router.post("/add-booking", async (req, res) => {
     note,
   } = req.body;
 
-  if (!customer_id || (!schedule_id && !custom_tour_id))
+  if (!user_id || (!schedule_id && !custom_tour_id))
     return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
 
   const bookingCode = generateBookingCode();
@@ -80,12 +80,12 @@ router.post("/add-booking", async (req, res) => {
     const [result] = await pool.query(
       `
       INSERT INTO bookings 
-      (booking_code, customer_id, schedule_id, custom_tour_id, qty_adults, qty_children, total_amount, note)
+      (booking_code, user_id, schedule_id, custom_tour_id, qty_adults, qty_children, total_amount, note)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         bookingCode,
-        customer_id,
+        user_id,
         schedule_id || null,
         custom_tour_id || null,
         qty_adults || 1,
@@ -160,7 +160,7 @@ router.post("/create-full", async (req, res) => {
 
   try {
     const {
-      customer_id,
+      user_id,
       schedule_id,
       custom_tour_id,
       qty_adults,
@@ -170,21 +170,25 @@ router.post("/create-full", async (req, res) => {
       passengers,
     } = req.body;
 
-    if (!customer_id || (!schedule_id && !custom_tour_id)) {
+    if (!user_id || !schedule_id) {
       await conn.rollback();
       conn.release();
-      return res.status(400).json({ message: "Thiếu thông tin bắt buộc" });
+      return res.status(400).json({
+        message: "Thiếu thông tin bắt buộc",
+        user_id,
+        schedule_id,
+      });
     }
 
     // 1️⃣ Tạo booking
     const bookingCode = generateBookingCode();
     const [bookingRes] = await conn.query(
-      `INSERT INTO bookings 
-        (booking_code, customer_id, schedule_id, custom_tour_id, qty_adults, qty_children, total_amount, note, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `  INSERT INTO bookings 
+      (booking_code, user_id, schedule_id, custom_tour_id, qty_adults, qty_children, total_amount, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         bookingCode,
-        customer_id,
+        user_id,
         schedule_id || null,
         custom_tour_id || null,
         qty_adults || 1,
@@ -231,7 +235,7 @@ router.post("/create-full", async (req, res) => {
     const requestId = partnerCode + new Date().getTime();
     const orderId = bookingCode;
     const orderInfo = `Thanh toán booking ${bookingCode}`;
-    const redirectUrl = "http://localhost:5173";
+    const redirectUrl = `http://localhost:5173/payment-result?booking_code=${bookingCode}`;
     const ipnUrl =
       "https://margret-administrant-unsucculently.ngrok-free.dev/api/admin/bookings/momo-ipn";
     const amount = total_amount.toString();
@@ -429,5 +433,19 @@ router.post("/momo-ipn", async (req, res) => {
     return res.status(500).json({ message: "IPN error", error: err.message });
   }
 });
-
+router.get("/booking-status/:booking_code", async (req, res) => {
+  const { booking_code } = req.params;
+  try {
+    const [rows] = await pool.query(
+      "SELECT status FROM bookings WHERE booking_code = ?",
+      [booking_code]
+    );
+    if (rows.length === 0)
+      return res.status(404).json({ message: "Booking not found" });
+    return res.json({ status: rows[0].status });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: "Error", error: err.message });
+  }
+});
 export default router;
